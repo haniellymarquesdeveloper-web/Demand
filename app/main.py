@@ -7,4 +7,4 @@ app.include_router(demands_router)
 
 @app.get("/")
 def root():
-    return {"message": "API de Demandas ativa "}
+    return {"message": "Está ativa a API de demandas "}
