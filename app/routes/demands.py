@@ -1,25 +1,15 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 from typing import List
-from fastapi import HTTPException
+from app.demands.schemas import Demanda, DemandaCreate
+from app.users.permissions import can_close_demand
+from app.users.schemas import User
+from app.demands.schemas import Demanda, DemandaCreate, StatusEnum
 
 
 router = APIRouter(prefix="/demandas", tags=["Demandas"])
 
-
-class DemandaCreate(BaseModel):
-    titulo: str
-    descricao: str
-    status: str
-    criador: str
-
-
-class Demanda(DemandaCreate):
-    id: int
-
-
-
 demandas: List[Demanda] = []
+
 
 
 @router.get("/", response_model=List[Demanda])
@@ -57,6 +47,36 @@ def atualizar_demanda(demanda_id: int, dados: DemandaCreate):
         detail="Desculpe, mas essa demanda não foi encontrada."
     )
 
+@router.put("/{demanda_id}/fechar", response_model=Demanda)
+def fechar_demanda(demanda_id: int, user: User):
+    if not can_close_demand(user.profile):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso negado: você não tem permissão para fechar essa demanda."
+        )
+    
+    for index, demanda in enumerate(demandas):
+        if demanda.id == demanda_id:
+
+            demanda_fechada = Demanda(
+                id=demanda.id,
+                titulo=demanda.titulo,
+                descricao=demanda.descricao,
+                status=StatusEnum.FECHADA,
+                criador=demanda.criador
+
+            )
+
+            demandas [index] = demanda_fechada
+            return demanda_fechada
+        
+    raise HTTPException(
+        status_code=404,
+        detail="Demanda não encontrada."
+        )
+
+
+
 @router.delete("/{demanda_id}")
 def deletar_demanda(demanda_id: int):
     for index, demanda in enumerate(demandas):
@@ -78,12 +98,14 @@ def criar_demanda(demanda: DemandaCreate):
         id=novo_id,
         titulo=demanda.titulo,
         descricao=demanda.descricao,
-        status=demanda.status,
+        status=StatusEnum.ABERTA,
         criador=demanda.criador 
     ) 
 
     demandas.append(nova_demanda)
     return nova_demanda
+
+
 
 
 
